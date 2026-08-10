@@ -123,6 +123,10 @@ namespace Padlume
 
         // Settings
         public static string StartWithWindows => T("Iniciar automaticamente com o Windows", "Start automatically with Windows");
+        public static string ThemeLabel => T("Tema", "Theme");
+        public static string ThemeAuto => T("Automático", "Automatic");
+        public static string ThemeLight => T("Claro", "Light");
+        public static string ThemeDark => T("Escuro", "Dark");
         public static string AllowPhoneControl => T("Permitir controlar pelo celular", "Allow phone control");
         public static string PhoneControlHint(string url) => T(
             $"Acesse http://{url} pelo navegador do celular, na mesma rede Wi-Fi.",

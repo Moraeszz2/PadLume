@@ -7,7 +7,8 @@
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="#ECEDF1"/>
     <SolidColorBrush x:Key="BorderBrush" Color="#E2E4E8"/>
     <SolidColorBrush x:Key="DividerBrush" Color="#E8E9EC"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14161A"/>
+    <Color x:Key="TextPrimaryColor">#14161A</Color>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6270"/>
     <SolidColorBrush x:Key="DimBrush" Color="#D6D8DC"/>
     <SolidColorBrush x:Key="SelectedRowBrush" Color="#EAF0FF"/>

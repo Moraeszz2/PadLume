@@ -53,14 +53,22 @@
 
         <Style x:Key="CardBorder" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="18"/>
-            <Setter Property="Padding" Value="18"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="Padding" Value="20"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect BlurRadius="24" ShadowDepth="2" Opacity="0.3" Color="{DynamicResource ShadowColor}"/>
+                    <DropShadowEffect BlurRadius="34" ShadowDepth="3" Opacity="0.22" Color="{DynamicResource ShadowColor}"/>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <Style x:Key="SectionIcon" TargetType="Border">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button">
@@ -221,6 +229,32 @@
             </Setter>
         </Style>
 
+        <Style x:Key="SegmentedRadioButton" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3B6BFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Storyboard x:Key="BluetoothPulseStoryboard">
             <DoubleAnimation Storyboard.TargetName="PulseScaleOuter" Storyboard.TargetProperty="ScaleX" From="1" To="1.9" Duration="0:0:2" RepeatBehavior="Forever"/>
             <DoubleAnimation Storyboard.TargetName="PulseScaleOuter" Storyboard.TargetProperty="ScaleY" From="1" To="1.9" Duration="0:0:2" RepeatBehavior="Forever"/>
@@ -233,8 +267,18 @@
     </Window.Resources>
 
     <ScrollViewer x:Name="RootScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid Margin="24">
+    <Grid>
+        <!-- Purely decorative ambient glow behind the header — fixed brand blue, low enough opacity
+             (~10%) to read as a soft wash rather than a color shift on either theme. -->
+        <Ellipse Width="520" Height="260" Fill="#3B82F6" Opacity="0.09" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-160,-160,0,0">
+            <Ellipse.Effect>
+                <BlurEffect Radius="90"/>
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <Grid Margin="24">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -262,17 +306,29 @@
                         <ScaleTransform x:Name="PulseScaleInner" ScaleX="1" ScaleY="1"/>
                     </Ellipse.RenderTransform>
                 </Ellipse>
-                <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource SurfaceBrush}" BorderBrush="#3B82F6" BorderThickness="2">
-                    <TextBlock Text="&#xE702;" FontFamily="Segoe MDL2 Assets" FontSize="38" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-3,-1,0,0" Foreground="{DynamicResource TextPrimaryBrush}">
-                        <TextBlock.Effect>
-                            <DropShadowEffect Color="#3B82F6" BlurRadius="16" ShadowDepth="0" Opacity="0.9"/>
-                        </TextBlock.Effect>
-                    </TextBlock>
+                <Border Width="64" Height="64" CornerRadius="32">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#6C93FF" Offset="0"/>
+                            <GradientStop Color="#2C4FD6" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.Effect>
+                        <DropShadowEffect Color="#3B82F6" BlurRadius="14" ShadowDepth="2" Opacity="0.35"/>
+                    </Border.Effect>
+                    <TextBlock Text="&#xE702;" FontFamily="Segoe MDL2 Assets" FontSize="34" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-2,0,0,0" Foreground="White"/>
                 </Border>
             </Grid>
 
             <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center">
-                <TextBlock Text="{x:Static local:Strings.ControllersDetected}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="{x:Static local:Strings.ControllersDetected}" FontSize="26" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis">
+                    <TextBlock.Foreground>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="{DynamicResource TextPrimaryColor}" Offset="0"/>
+                            <GradientStop Color="#8FB4FF" Offset="1.4"/>
+                        </LinearGradientBrush>
+                    </TextBlock.Foreground>
+                </TextBlock>
                 <TextBlock Text="{x:Static local:Strings.BluetoothOrUsb}" FontSize="14" Foreground="#5B8CFF" Margin="0,2,0,0"/>
             </StackPanel>
 
@@ -437,18 +493,47 @@
         </Border>
 
         <Border Grid.Row="5" Style="{StaticResource CardBorder}" Margin="0,0,0,16">
-            <CheckBox x:Name="StartWithWindowsCheckBox" Style="{StaticResource DarkCheckBox}" Content="{x:Static local:Strings.StartWithWindows}" Checked="StartWithWindowsCheckBox_Changed" Unchecked="StartWithWindowsCheckBox_Changed"/>
+            <StackPanel Orientation="Horizontal">
+                <Border Style="{StaticResource SectionIcon}" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#84A7FF"/>
+                </Border>
+                <CheckBox x:Name="StartWithWindowsCheckBox" Style="{StaticResource DarkCheckBox}" Content="{x:Static local:Strings.StartWithWindows}" Checked="StartWithWindowsCheckBox_Changed" Unchecked="StartWithWindowsCheckBox_Changed" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
         </Border>
 
-        <Border Grid.Row="6" Style="{StaticResource CardBorder}">
+        <Border Grid.Row="6" Style="{StaticResource CardBorder}" Margin="0,0,0,16">
             <StackPanel>
-                <CheckBox x:Name="PhoneControlCheckBox" Style="{StaticResource DarkCheckBox}" Content="{x:Static local:Strings.AllowPhoneControl}" Checked="PhoneControlCheckBox_Changed" Unchecked="PhoneControlCheckBox_Changed"/>
-                <TextBlock x:Name="PhoneControlStatusText" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="28,8,0,0" Visibility="Collapsed"/>
-                <Border x:Name="PhoneControlQrBorder" Background="White" CornerRadius="8" Padding="8" Margin="28,10,0,0" HorizontalAlignment="Left" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource SectionIcon}" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#84A7FF"/>
+                    </Border>
+                    <CheckBox x:Name="PhoneControlCheckBox" Style="{StaticResource DarkCheckBox}" Content="{x:Static local:Strings.AllowPhoneControl}" Checked="PhoneControlCheckBox_Changed" Unchecked="PhoneControlCheckBox_Changed" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock x:Name="PhoneControlStatusText" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="54,8,0,0" Visibility="Collapsed"/>
+                <Border x:Name="PhoneControlQrBorder" Background="White" CornerRadius="8" Padding="8" Margin="54,10,0,0" HorizontalAlignment="Left" Visibility="Collapsed">
                     <Image x:Name="PhoneControlQrImage" Width="140" Height="140" SnapsToDevicePixels="True" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
                 </Border>
             </StackPanel>
         </Border>
+
+        <Border Grid.Row="7" Style="{StaticResource CardBorder}">
+            <StackPanel Orientation="Horizontal">
+                <Border Style="{StaticResource SectionIcon}" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE793;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#84A7FF"/>
+                </Border>
+                <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Static local:Strings.ThemeLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="10" Padding="3" Margin="0,8,0,0" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ThemeAutoRadio" Style="{StaticResource SegmentedRadioButton}" GroupName="ThemeGroup" Content="{x:Static local:Strings.ThemeAuto}" Checked="ThemeRadio_Checked"/>
+                            <RadioButton x:Name="ThemeLightRadio" Style="{StaticResource SegmentedRadioButton}" GroupName="ThemeGroup" Content="{x:Static local:Strings.ThemeLight}" Checked="ThemeRadio_Checked"/>
+                            <RadioButton x:Name="ThemeDarkRadio" Style="{StaticResource SegmentedRadioButton}" GroupName="ThemeGroup" Content="{x:Static local:Strings.ThemeDark}" Checked="ThemeRadio_Checked"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        </Grid>
     </Grid>
     </ScrollViewer>
 </Window>

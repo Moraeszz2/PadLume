@@ -86,9 +86,13 @@ namespace Padlume
         /// published alongside it before touching disk with anything executable. ChecksumMismatch is
         /// reported separately from a generic Failed — this is a "fail closed" security boundary, not
         /// just a data-integrity check (what's being verified is about to be run elevated), and the
-        /// caller shows the user a more specific message for it than for an ordinary network hiccup.</summary>
-        public static async Task<(UpdateDownloadResult Result, string? SetupPath)> DownloadAndVerifyAsync(UpdateInfo info)
+        /// caller shows the user a more specific message for it than for an ordinary network hiccup.
+        /// Streams to disk in chunks (rather than buffering the whole ~50MB in memory first) so
+        /// <paramref name="progress"/> can report real 0-100 percentages as bytes actually arrive, and
+        /// hashes incrementally alongside the same pass instead of re-reading the file afterward.</summary>
+        public static async Task<(UpdateDownloadResult Result, string? SetupPath)> DownloadAndVerifyAsync(UpdateInfo info, IProgress<double>? progress = null)
         {
+            string? tempPath = null;
             try
             {
                 using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -97,24 +101,51 @@ namespace Padlume
                 var checksumLine = await http.GetStringAsync(info.ChecksumUrl);
                 var expectedHash = checksumLine.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0].Trim();
 
-                var bytes = await http.GetByteArrayAsync(info.SetupUrl);
-                var actualHash = Convert.ToHexString(SHA256.HashData(bytes));
+                using var response = await http.GetAsync(info.SetupUrl, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                var totalBytes = response.Content.Headers.ContentLength;
 
-                if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                tempPath = Path.Combine(Path.GetTempPath(), $"Padlume-Setup-{info.Version}.exe");
+                using (var incrementalHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+                using (var contentStream = await response.Content.ReadAsStreamAsync())
+                using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    App.Log("UpdateChecker", $"Checksum mismatch for {info.Version}: expected {expectedHash}, got {actualHash}.");
-                    return (UpdateDownloadResult.ChecksumMismatch, null);
+                    var buffer = new byte[81920];
+                    long totalRead = 0;
+                    int bytesRead;
+                    while ((bytesRead = await contentStream.ReadAsync(buffer)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                        incrementalHash.AppendData(buffer, 0, bytesRead);
+                        totalRead += bytesRead;
+                        if (totalBytes is > 0)
+                            progress?.Report(100.0 * totalRead / totalBytes.Value);
+                    }
+
+                    var actualHash = Convert.ToHexString(incrementalHash.GetHashAndReset());
+                    if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        App.Log("UpdateChecker", $"Checksum mismatch for {info.Version}: expected {expectedHash}, got {actualHash}.");
+                        fileStream.Close();
+                        TryDelete(tempPath);
+                        return (UpdateDownloadResult.ChecksumMismatch, null);
+                    }
                 }
 
-                var tempPath = Path.Combine(Path.GetTempPath(), $"Padlume-Setup-{info.Version}.exe");
-                await File.WriteAllBytesAsync(tempPath, bytes);
                 return (UpdateDownloadResult.Success, tempPath);
             }
             catch (Exception ex)
             {
                 App.Log("UpdateChecker", $"DownloadAndVerifyAsync failed: {ex.Message}");
+                if (tempPath != null)
+                    TryDelete(tempPath);
                 return (UpdateDownloadResult.Failed, null);
             }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try { File.Delete(path); } catch { /* best-effort cleanup of a partial/rejected download */ }
         }
 
         /// <summary>Launches the (already checksum-verified) installer silently and lets it relaunch

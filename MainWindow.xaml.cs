@@ -226,6 +226,7 @@ namespace Padlume
         private readonly HashSet<string> _selfDisabledInstanceIds = new();
         private IReadOnlyList<BatteryHistoryPoint> _currentHistory = Array.Empty<BatteryHistoryPoint>();
         private bool _suppressStartupCheckboxEvent;
+        private bool _suppressThemeRadioEvent;
         private bool _isExiting;
         private CompactWidgetWindow? _compactWidget;
 
@@ -242,6 +243,21 @@ namespace Padlume
             _suppressStartupCheckboxEvent = true;
             StartWithWindowsCheckBox.IsChecked = StartupManager.IsEnabled();
             _suppressStartupCheckboxEvent = false;
+
+            _suppressThemeRadioEvent = true;
+            switch (ThemeManager.CurrentPreference)
+            {
+                case ThemePreference.Light:
+                    ThemeLightRadio.IsChecked = true;
+                    break;
+                case ThemePreference.Dark:
+                    ThemeDarkRadio.IsChecked = true;
+                    break;
+                default:
+                    ThemeAutoRadio.IsChecked = true;
+                    break;
+            }
+            _suppressThemeRadioEvent = false;
 
             _remoteServer.GetControllers = GetRemoteControllerSnapshot;
             _remoteServer.SelectController = SelectControllerByKeyFromRemote;
@@ -301,7 +317,8 @@ namespace Padlume
         {
             window.SetBusy(Strings.Downloading);
 
-            var (result, setupPath) = await UpdateChecker.DownloadAndVerifyAsync(update);
+            var progress = new Progress<double>(window.SetProgress);
+            var (result, setupPath) = await UpdateChecker.DownloadAndVerifyAsync(update, progress);
             if (result == UpdateDownloadResult.ChecksumMismatch)
             {
                 window.SetError(Strings.UpdateChecksumMismatch);
@@ -1146,6 +1163,20 @@ namespace Padlume
 
             InfoTitleText.Text = Strings.CouldNotChangeStartupTitle;
             InfoSubtitleText.Text = Strings.WindowsDeniedChangeSubtitle;
+        }
+
+        private void ThemeRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_suppressThemeRadioEvent)
+                return;
+
+            var preference = sender switch
+            {
+                var s when s == ThemeLightRadio => ThemePreference.Light,
+                var s when s == ThemeDarkRadio => ThemePreference.Dark,
+                _ => ThemePreference.Auto,
+            };
+            ThemeManager.SetPreference(preference);
         }
 
         private void PhoneControlCheckBox_Changed(object sender, RoutedEventArgs e)

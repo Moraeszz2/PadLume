@@ -14,22 +14,36 @@ namespace Padlume
             TitleText.Text = Strings.UpdateAvailableTitle(version);
         }
 
-        /// <summary>Disables both buttons and shows a status line — used while downloading/verifying/launching, so the user can't double-click "Update now" mid-download or dismiss out from under it.</summary>
+        /// <summary>Shows the progress bar at 0% and disables both buttons — used once the download
+        /// starts, so the user can't double-click "Update now" mid-download or dismiss out from under
+        /// it.</summary>
         public void SetBusy(string statusText)
         {
+            ErrorText.Visibility = Visibility.Collapsed;
             StatusText.Text = statusText;
-            StatusText.Foreground = System.Windows.Media.Brushes.SkyBlue;
-            StatusText.Visibility = Visibility.Visible;
+            ProgressPanel.Visibility = Visibility.Visible;
+            SetProgress(0);
             UpdateButton.IsEnabled = false;
             LaterButton.IsEnabled = false;
+        }
+
+        /// <summary>Updates the progress bar fill and percentage label — percent is 0-100. Computes the
+        /// fill width from the track's own measured width rather than binding, since a plain Border pair
+        /// is simpler to keep visually consistent with the rest of the app than retemplating
+        /// ProgressBar.</summary>
+        public void SetProgress(double percent)
+        {
+            percent = Math.Clamp(percent, 0, 100);
+            ProgressPercentText.Text = $"{percent:0}%";
+            ProgressFill.Width = ProgressTrack.ActualWidth * (percent / 100.0);
         }
 
         /// <summary>Re-enables the buttons so the user can retry or give up — used when the download/verify/launch step failed.</summary>
         public void SetError(string message)
         {
-            StatusText.Text = message;
-            StatusText.Foreground = System.Windows.Media.Brushes.IndianRed;
-            StatusText.Visibility = Visibility.Visible;
+            ProgressPanel.Visibility = Visibility.Collapsed;
+            ErrorText.Text = message;
+            ErrorText.Visibility = Visibility.Visible;
             UpdateButton.IsEnabled = true;
             LaterButton.IsEnabled = true;
         }

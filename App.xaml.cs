@@ -43,7 +43,7 @@ namespace Padlume
 
             // Must run before base.OnStartup, which is what shows the MainWindow (via StartupUri) —
             // without this the window would appear for an instant without the theme dictionary loaded.
-            ThemeManager.ApplyCurrentSystemTheme();
+            ThemeManager.ApplyTheme();
             base.OnStartup(e);
         }
 
