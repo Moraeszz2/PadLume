@@ -33,8 +33,11 @@ jobs:
           $version = if ($ref -match '^v(\d+\.\d+\.\d+)$') { $matches[1] } else { "0.0.0" }
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      # -p:Version/AssemblyVersion carimba a versão da tag no próprio binário — é o que UpdateChecker.cs
+      # lê (Assembly.GetExecutingAssembly().GetName().Version) pra saber se uma Release nova é mesmo
+      # mais nova que a instalada, em vez de só comparar o texto da tag.
       - name: Publicar (self-contained, single-file, win-x64)
-        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -o publish
+        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:Version=${{ steps.version.outputs.version }} -p:AssemblyVersion=${{ steps.version.outputs.version }}.0 -p:FileVersion=${{ steps.version.outputs.version }}.0 -o publish
 
       # Inno Setup 6 já vem pré-instalado nos runners "windows-latest" do GitHub — ver
       # https://github.com/actions/runner-images.

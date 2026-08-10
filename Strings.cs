@@ -114,5 +114,15 @@ namespace Padlume
 
         // Startup
         public static string AlreadyRunning => T("O Padlume já está em execução.", "Padlume is already running.");
+
+        // Update available
+        public static string UpdateAvailableTitle(string version) => T($"Atualização disponível: {version}", $"Update available: {version}");
+        public static string UpdateAvailableSubtitle => T("Baixa e instala a versão nova automaticamente — o Padlume fecha e reabre sozinho.", "Downloads and installs the new version automatically — Padlume closes and reopens on its own.");
+        public static string UpdateNow => T("Atualizar agora", "Update now");
+        public static string UpdateLater => T("Mais tarde", "Later");
+        public static string Downloading => T("Baixando atualização...", "Downloading update...");
+        public static string UpdateVerifying => T("Conferindo integridade do arquivo...", "Verifying file integrity...");
+        public static string UpdateFailed => T("Não foi possível baixar a atualização. Tente novamente mais tarde.", "Couldn't download the update. Try again later.");
+        public static string UpdateChecksumMismatch => T("O arquivo baixado não bateu com o esperado — atualização cancelada por segurança.", "The downloaded file didn't match what was expected — update canceled for safety.");
     }
 }

@@ -282,6 +282,48 @@ namespace Padlume
             // "Exit" in the tray popup actually shuts it down — see ExitApplication().
             Closing += MainWindow_Closing;
             Closed += (_, _) => _trayNotifier.Dispose();
+
+            _ = CheckForUpdatesAsync();
+        }
+
+        private async Task CheckForUpdatesAsync()
+        {
+            var update = await UpdateChecker.CheckForUpdateAsync();
+            if (update == null)
+                return;
+
+            var window = new UpdateAvailableWindow(update.Version);
+            window.UpdateRequested += (_, _) => _ = PerformUpdateAsync(window, update);
+            window.Show();
+        }
+
+        private async Task PerformUpdateAsync(UpdateAvailableWindow window, UpdateInfo update)
+        {
+            window.SetBusy(Strings.Downloading);
+
+            var (result, setupPath) = await UpdateChecker.DownloadAndVerifyAsync(update);
+            if (result == UpdateDownloadResult.ChecksumMismatch)
+            {
+                window.SetError(Strings.UpdateChecksumMismatch);
+                return;
+            }
+            if (result != UpdateDownloadResult.Success || setupPath == null)
+            {
+                window.SetError(Strings.UpdateFailed);
+                return;
+            }
+
+            if (!UpdateChecker.LaunchInstallerSilently(setupPath))
+            {
+                window.SetError(Strings.UpdateFailed);
+                return;
+            }
+
+            // The installer's [Run] postinstall step relaunches Padlume on its own once it's done (see
+            // installer/Padlume.iss) — same clean-shutdown path as the tray "Exit", so controllers this
+            // session disabled for exclusivity get re-enabled instead of staying locked out.
+            window.Close();
+            ExitApplication();
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
