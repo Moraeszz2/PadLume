@@ -66,7 +66,11 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 ; Routing through "cmd /c start" forces a real ShellExecute-based launch instead, which correctly
 ; re-triggers UAC for the target's manifest. This is the standard workaround for "elevated installer
 ; + elevated app" in Inno Setup.
-Filename: "{cmd}"; Parameters: "/C start """" ""{app}\{#MyAppExeName}"""; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent runhidden
+;
+; No "skipifsilent" on purpose: UpdateChecker.cs runs Setup with /VERYSILENT for self-updates and
+; relies on exactly this step to relaunch Padlume afterwards — skipifsilent would (and did) skip it
+; in that exact scenario, since silent is precisely the mode self-update uses.
+Filename: "{cmd}"; Parameters: "/C start """" ""{app}\{#MyAppExeName}"""; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall runhidden
 
 [UninstallDelete]
 ; The app writes history/config to %AppData%\Padlume — asks explicitly instead of deleting it outright,
