@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Structural tokens (backgrounds, text, borders) for the dark theme — the app's original values,
+        from before a light theme existed. Accent color (blue) and status colors (green/amber/red) are
+        left out on purpose: they stay fixed in the XAML because they already work well in both themes,
+        with no need for a separate version for each.
+    -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#0A0A0C"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#131316"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#1C1C20"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#17171A"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#2A2A2E"/>
+    <SolidColorBrush x:Key="DividerBrush" Color="#22222A"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F8FAFC"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9BA1AC"/>
+    <SolidColorBrush x:Key="DimBrush" Color="#38383E"/>
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#19191D"/>
+    <Color x:Key="ShadowColor">#000000</Color>
+</ResourceDictionary>

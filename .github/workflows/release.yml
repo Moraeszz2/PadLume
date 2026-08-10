@@ -1,0 +1,73 @@
+name: Build e Release
+
+# Roda ao empurrar uma tag "v*" (ex.: v1.0.0) ou manualmente pela aba Actions do GitHub. Publicar via
+# workflow em vez de gerar o instalador na máquina de alguém é o que deixa alguém baixando a Release
+# verificar que o binário corresponde ao código deste repositório nessa tag (ver README > "Por que
+# pede Administrador").
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instalar .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Extrair versão da tag
+        id: version
+        shell: pwsh
+        run: |
+          $ref = "${{ github.ref_name }}"
+          $version = if ($ref -match '^v(\d+\.\d+\.\d+)$') { $matches[1] } else { "0.0.0" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publicar (self-contained, single-file, win-x64)
+        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -o publish
+
+      # Inno Setup 6 já vem pré-instalado nos runners "windows-latest" do GitHub — ver
+      # https://github.com/actions/runner-images.
+      - name: Gerar instalador com Inno Setup
+        run: |
+          iscc /DMyAppVersion=${{ steps.version.outputs.version }} installer\Padlume.iss
+
+      - name: Calcular SHA256
+        id: checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Path "Setup.exe" -Algorithm SHA256).Hash
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+          Set-Content -Path "Setup.exe.sha256" -Value "$hash  Setup.exe"
+
+      - name: Enviar artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Padlume-Setup
+          path: |
+            Setup.exe
+            Setup.exe.sha256
+
+      - name: Criar Release (só em push de tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Setup.exe
+            Setup.exe.sha256
+          body: |
+            SHA256 do instalador: `${{ steps.checksum.outputs.sha256 }}`
+
+            Gerado automaticamente a partir deste código-fonte pelo GitHub Actions (não compilado à mão).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

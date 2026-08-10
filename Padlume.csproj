@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- TFM com versão do Windows SDK habilita as APIs Windows.Gaming.Input / Windows.Devices.Power -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Padlume</RootNamespace>
+    <AssemblyName>Padlume</AssemblyName>
+    <Product>Padlume</Product>
+    <AssemblyTitle>Padlume</AssemblyTitle>
+    <ApplicationIcon>Assets\app-exe.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
+      Sem isso, ao fechar a janela o telemetry interno do WPF (ControlsTraceLogger) tenta carregar
+      System.Diagnostics.Tracing via reflection e lança FileNotFoundException nesse publish
+      single-file (esse assembly não fica disponível do jeito que o single-file empacota) — inofensivo
+      (dispara depois que ExitApplication já reabilitou os controles), mas suja o crash.log à toa.
+    -->
+    <EventSourceSupport>false</EventSourceSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Assets\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Renders the "scan to open" QR code for phone control — pure PNG-byte output, no System.Drawing dependency. -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+</Project>

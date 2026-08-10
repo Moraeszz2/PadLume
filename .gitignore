@@ -1,0 +1,24 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Installer output (built by CI / installer/Padlume.iss, not committed)
+Setup.exe
+Setup.exe.sha256
+
+# Inno Setup local build cache
+installer/Output/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS cruft
+Thumbs.db
+.DS_Store
+
+# Local Claude Code settings (machine-specific permission allow-list, not project source)
+.claude/

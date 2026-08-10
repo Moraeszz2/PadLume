@@ -1,0 +1,15 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Same tokens as Dark.xaml, light values. See the comment there about why blue/status colors are left out. -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F4F6"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#F1F2F5"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#ECEDF1"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#E2E4E8"/>
+    <SolidColorBrush x:Key="DividerBrush" Color="#E8E9EC"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14161A"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6270"/>
+    <SolidColorBrush x:Key="DimBrush" Color="#D6D8DC"/>
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#EAF0FF"/>
+    <Color x:Key="ShadowColor">#000000</Color>
+</ResourceDictionary>
