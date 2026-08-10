@@ -15,6 +15,10 @@
 AppId={{B8E5F4A2-6D3C-4E7A-9F1B-2C8D5A6E7F90}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+; Without this, Setup falls back to "{#MyAppName} versão {#MyAppVersion}" (localized) for every
+; name+version display spot, including "Apps & features" — redundant there since Windows already
+; shows the version in its own separate column.
+AppVerName={#MyAppName}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -26,6 +30,7 @@ OutputDir=..
 OutputBaseFilename=Setup
 SetupIconFile=..\Assets\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
