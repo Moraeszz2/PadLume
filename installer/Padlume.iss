@@ -103,10 +103,13 @@ begin
     // the app/tray icon stays open even though it's just been "uninstalled" from the user's perspective).
     KillPadlume;
 
-    // Neither of these is created by [Files]/[Registry] entries — they're written by the app itself
+    // None of these is created by [Files]/[Registry] entries — they're written by the app itself
     // at runtime (StartupManager, RemoteControlServer), so Inno Setup's own uninstall log never
-    // learns about them and won't clean them up on its own.
+    // learns about them and won't clean them up on its own. The registry value is only for versions
+    // older than the switch to a Scheduled Task for "start with Windows" (see StartupManager.cs) —
+    // harmless to attempt even when it was never created.
     RegDeleteValue(HKCU, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', '{#MyAppName}');
+    Exec('schtasks.exe', '/delete /tn "{#MyAppName}" /f', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec('netsh.exe', 'advfirewall firewall delete rule name="{#MyAppName} Phone Control"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;

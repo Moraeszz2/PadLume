@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -11,6 +12,13 @@ namespace Padlume
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Padlume",
             "crash.log");
+
+        // Fixed GUID-derived name so it can't collide with an unrelated app's mutex. Two Padlume
+        // instances running at once would each independently enumerate and enforce controller
+        // exclusivity — fighting over enabling/disabling the same devices — so the second one refuses
+        // to start instead of limping along.
+        private const string SingleInstanceMutexName = "Padlume-SingleInstance-3F2A9B7C-6E1D-4C8A-9B2F-8D4E1A7C5F30";
+        private Mutex? _singleInstanceMutex;
 
         public App()
         {
@@ -25,6 +33,14 @@ namespace Padlume
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            _singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out bool isFirstInstance);
+            if (!isFirstInstance)
+            {
+                System.Windows.MessageBox.Show(Strings.AlreadyRunning, "Padlume", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
             // Must run before base.OnStartup, which is what shows the MainWindow (via StartupUri) —
             // without this the window would appear for an instant without the theme dictionary loaded.
             ThemeManager.ApplyCurrentSystemTheme();

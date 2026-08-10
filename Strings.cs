@@ -111,5 +111,8 @@ namespace Padlume
 
         // Low battery warning
         public static string LowBatteryToastTitle => T("Bateria fraca", "Low battery");
+
+        // Startup
+        public static string AlreadyRunning => T("O Padlume já está em execução.", "Padlume is already running.");
     }
 }
