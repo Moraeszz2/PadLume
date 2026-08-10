@@ -17,10 +17,11 @@ namespace Padlume
     /// </summary>
     public static class ControllerDeviceLock
     {
-        private static readonly Guid GUID_DEVINTERFACE_HID = new("4D1E55B2-F16F-11CF-88CB-001111000030");
+        // The HID *class* GUID (device nodes), not GUID_DEVINTERFACE_HID (device *interfaces*) — see the
+        // comment on ScanGamepadCandidates for why that distinction is exactly what this method fixes.
+        private static readonly Guid GUID_DEVCLASS_HID = new("745A17A0-74D3-11D0-B6FE-00A0C90F57DA");
 
         private const int DIGCF_PRESENT = 0x02;
-        private const int DIGCF_DEVICEINTERFACE = 0x10;
         private const uint SPDRP_HARDWAREID = 0x01;
 
         // The reliable way to identify "this is a game controller" is this compatible ID that Windows
@@ -47,23 +48,11 @@ namespace Padlume
             public IntPtr Reserved;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct SP_DEVICE_INTERFACE_DATA
-        {
-            public int cbSize;
-            public Guid InterfaceClassGuid;
-            public int Flags;
-            public IntPtr Reserved;
-        }
-
         [DllImport("setupapi.dll", SetLastError = true)]
         private static extern IntPtr SetupDiGetClassDevs(ref Guid ClassGuid, IntPtr Enumerator, IntPtr hwndParent, int Flags);
 
         [DllImport("setupapi.dll", SetLastError = true)]
-        private static extern bool SetupDiEnumDeviceInterfaces(IntPtr DeviceInfoSet, IntPtr DeviceInfoData, ref Guid InterfaceClassGuid, int MemberIndex, ref SP_DEVICE_INTERFACE_DATA DeviceInterfaceData);
-
-        [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern bool SetupDiGetDeviceInterfaceDetail(IntPtr DeviceInfoSet, ref SP_DEVICE_INTERFACE_DATA DeviceInterfaceData, IntPtr DeviceInterfaceDetailData, int DeviceInterfaceDetailDataSize, ref int RequiredSize, ref SP_DEVINFO_DATA DeviceInfoData);
+        private static extern bool SetupDiEnumDeviceInfo(IntPtr DeviceInfoSet, int MemberIndex, ref SP_DEVINFO_DATA DeviceInfoData);
 
         [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern bool SetupDiGetDeviceInstanceId(IntPtr DeviceInfoSet, ref SP_DEVINFO_DATA DeviceInfoData, StringBuilder DeviceInstanceId, int DeviceInstanceIdSize, out int RequiredSize);
@@ -129,16 +118,26 @@ namespace Padlume
         }
 
         /// <summary>
-        /// Enumerates every present HID device that's actually a game controller — only reads metadata
-        /// already cached by Windows (instance ID + HardwareIds via the registry), without opening a
-        /// single handle to the device.
+        /// Enumerates every present device NODE in the HID class that's actually a game controller —
+        /// only reads metadata already cached by Windows (instance ID + HardwareIds via the registry),
+        /// without opening a single handle to the device.
         /// </summary>
+        /// <remarks>
+        /// This used to enumerate device INTERFACES (GUID_DEVINTERFACE_HID) instead of device NODES
+        /// (GUID_DEVCLASS_HID). That missed a real Xbox controller connected through the Xbox Wireless
+        /// Adapter: its HID device node existed, was present, and carried the right compatible ID in its
+        /// HardwareIds (confirmed live via Get-PnpDeviceProperty) — but for whatever reason didn't
+        /// surface as an enumerable device *interface* the way a directly-USB-connected or
+        /// Bluetooth-connected controller does, so it was silently invisible to exclusivity enforcement.
+        /// Enumerating device nodes directly (and reading HardwareIds straight off each one) finds it
+        /// either way, and is simpler code besides — no more two-call interface-to-device-info dance.
+        /// </remarks>
         private static List<GamepadCandidate> ScanGamepadCandidates()
         {
             var result = new List<GamepadCandidate>();
 
-            var guid = GUID_DEVINTERFACE_HID;
-            IntPtr deviceInfoSet = SetupDiGetClassDevs(ref guid, IntPtr.Zero, IntPtr.Zero, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+            var guid = GUID_DEVCLASS_HID;
+            IntPtr deviceInfoSet = SetupDiGetClassDevs(ref guid, IntPtr.Zero, IntPtr.Zero, DIGCF_PRESENT);
             if (deviceInfoSet == IntPtr.Zero || deviceInfoSet.ToInt64() == -1)
             {
                 App.Log("DeviceLock", $"ScanGamepadCandidates: SetupDiGetClassDevs failed (Win32={Marshal.GetLastWin32Error()}).");
@@ -147,15 +146,12 @@ namespace Padlume
 
             try
             {
-                var interfaceData = new SP_DEVICE_INTERFACE_DATA { cbSize = Marshal.SizeOf<SP_DEVICE_INTERFACE_DATA>() };
+                var devInfoData = new SP_DEVINFO_DATA { cbSize = Marshal.SizeOf<SP_DEVINFO_DATA>() };
                 int index = 0;
 
-                while (SetupDiEnumDeviceInterfaces(deviceInfoSet, IntPtr.Zero, ref guid, index, ref interfaceData))
+                while (SetupDiEnumDeviceInfo(deviceInfoSet, index, ref devInfoData))
                 {
                     index++;
-
-                    if (!TryGetDeviceInfoData(deviceInfoSet, ref interfaceData, out var devInfoData))
-                        continue;
 
                     if (!IsGamepadDevice(deviceInfoSet, ref devInfoData))
                         continue;
@@ -173,32 +169,6 @@ namespace Padlume
             }
 
             return result;
-        }
-
-        private static bool TryGetDeviceInfoData(IntPtr deviceInfoSet, ref SP_DEVICE_INTERFACE_DATA interfaceData, out SP_DEVINFO_DATA devInfoData)
-        {
-            devInfoData = new SP_DEVINFO_DATA { cbSize = Marshal.SizeOf<SP_DEVINFO_DATA>() };
-            int requiredSize = 0;
-
-            // The first call, with a null buffer, only exists to find out the detail buffer's size —
-            // it always "fails" (returns false) by design in that case, and isn't reliable for
-            // populating devInfoData. It's the SECOND call, with a real allocated buffer, that actually
-            // populates devInfoData (even though we don't care about the buffer's own contents).
-            SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, IntPtr.Zero, 0, ref requiredSize, ref devInfoData);
-            if (requiredSize == 0)
-                return false;
-
-            IntPtr buffer = Marshal.AllocHGlobal(requiredSize);
-            try
-            {
-                // The usual quirk: the variable buffer's cbSize needs to be 8 (x64) or 6 (x86).
-                Marshal.WriteInt32(buffer, IntPtr.Size == 8 ? 8 : 6);
-                return SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, buffer, requiredSize, ref requiredSize, ref devInfoData);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
         }
 
         private static string? GetDeviceInstanceId(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA devInfoData)
