@@ -267,10 +267,17 @@
     </Window.Resources>
 
     <ScrollViewer x:Name="RootScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid>
+    <Grid ClipToBounds="True">
         <!-- Purely decorative ambient glow behind the header — fixed brand blue, low enough opacity
-             (~10%) to read as a soft wash rather than a color shift on either theme. -->
-        <Ellipse Width="520" Height="260" Fill="#3B82F6" Opacity="0.09" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-160,-160,0,0">
+             (~10%) to read as a soft wash rather than a color shift on either theme. Positioned via
+             RenderTransform (not a negative Margin) specifically so it can bleed off the top/left edge
+             for the glow effect without contributing to this Grid's measured size — a negative margin
+             here was inflating what the ScrollViewer thought its content extent was, which pushed the
+             real header content up and clipped it against the window's top edge.-->
+        <Ellipse Width="520" Height="260" Fill="#3B82F6" Opacity="0.09" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
+            <Ellipse.RenderTransform>
+                <TranslateTransform X="-160" Y="-160"/>
+            </Ellipse.RenderTransform>
             <Ellipse.Effect>
                 <BlurEffect Radius="90"/>
             </Ellipse.Effect>

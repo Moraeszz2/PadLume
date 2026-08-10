@@ -498,9 +498,21 @@ namespace Padlume
 
             if (selected.IsBlocked && selected.DeviceInstanceId != null)
             {
-                if (ControllerDeviceLock.SetEnabled(selected.DeviceInstanceId, true))
+                bool reEnabled = ControllerDeviceLock.SetEnabled(selected.DeviceInstanceId, true);
+                if (!reEnabled)
                 {
-                    _selfDisabledInstanceIds.Remove(selected.DeviceInstanceId);
+                    // Xbox controllers (and other composite USB devices) enumerate as several sibling
+                    // HID interfaces — disabling one can make Windows re-enumerate the whole device,
+                    // changing the instance IDs of the others out from under us. Re-resolves and retries
+                    // once instead of leaving the controller the user just picked stuck showing as
+                    // blocked because we kept trying a now-stale ID.
+                    ResolveDeviceInstanceId(selected);
+                    reEnabled = selected.DeviceInstanceId != null && ControllerDeviceLock.SetEnabled(selected.DeviceInstanceId, true);
+                }
+
+                if (reEnabled)
+                {
+                    _selfDisabledInstanceIds.Remove(selected.DeviceInstanceId!);
                     selected.SetBlocked(false);
                 }
                 else
@@ -526,9 +538,18 @@ namespace Padlume
                     }
                 }
 
-                if (ControllerDeviceLock.SetEnabled(other.DeviceInstanceId, false))
+                bool disabled = ControllerDeviceLock.SetEnabled(other.DeviceInstanceId, false);
+                if (!disabled)
                 {
-                    _selfDisabledInstanceIds.Add(other.DeviceInstanceId);
+                    // Same stale-ID scenario as above (composite-device sibling re-enumeration) can hit
+                    // the disable side too — one more resolve-and-retry before counting it as failed.
+                    ResolveDeviceInstanceId(other);
+                    disabled = other.DeviceInstanceId != null && ControllerDeviceLock.SetEnabled(other.DeviceInstanceId, false);
+                }
+
+                if (disabled)
+                {
+                    _selfDisabledInstanceIds.Add(other.DeviceInstanceId!);
                     other.SetBlocked(true);
                 }
                 else
