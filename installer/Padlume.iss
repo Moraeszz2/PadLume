@@ -67,3 +67,41 @@ Filename: "{cmd}"; Parameters: "/C start """" ""{app}\{#MyAppExeName}"""; Descri
 ; The app writes history/config to %AppData%\Padlume — asks explicitly instead of deleting it outright,
 ; since it's user data (battery history) and not just disposable cache.
 Type: dirifempty; Name: "{app}"
+
+[Code]
+procedure KillPadlume;
+var
+  ResultCode: Integer;
+begin
+  // Best-effort: ignores failure (e.g. it wasn't running). /T also kills the compact widget window,
+  // which runs as a child window of the same process, not a separate one.
+  Exec('taskkill.exe', '/F /IM {#MyAppExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  // Without this, installing an update over a running instance leaves the old process locking
+  // Padlume.exe, and the new build either fails to overwrite it or ends up running two instances
+  // (which would fight over enabling/disabling the same controllers) until the user manually closes
+  // the old one and reopens the app.
+  if CurStep = ssInstall then
+    KillPadlume;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  ResultCode: Integer;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    // Without this, the running process keeps Padlume.exe locked (some files can't be removed, and
+    // the app/tray icon stays open even though it's just been "uninstalled" from the user's perspective).
+    KillPadlume;
+
+    // Neither of these is created by [Files]/[Registry] entries — they're written by the app itself
+    // at runtime (StartupManager, RemoteControlServer), so Inno Setup's own uninstall log never
+    // learns about them and won't clean them up on its own.
+    RegDeleteValue(HKCU, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', '{#MyAppName}');
+    Exec('netsh.exe', 'advfirewall firewall delete rule name="{#MyAppName} Phone Control"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+end;
