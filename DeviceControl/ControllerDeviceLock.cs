@@ -253,8 +253,31 @@ namespace Padlume
         /// </summary>
         public static bool SetEnabled(string deviceInstanceId, bool enabled)
         {
-            string action = enabled ? "enable" : "disable";
+            if (!enabled)
+                return RunPnputilAction("disable-device", deviceInstanceId);
 
+            if (RunPnputilAction("enable-device", deviceInstanceId))
+                return true;
+
+            // Controllers that arrive through a wireless receiver (e.g. the Xbox Wireless Adapter) can
+            // expose their HID interface as a dynamic child node that rejects a plain re-enable with
+            // ERROR_NOT_SUPPORTED (50) after being disabled — confirmed live: this is exactly what left
+            // a controller stuck with a driver error the first time this was hit. A restart (which the
+            // driver stack implements as a full remove+arrive cycle instead of just flipping the
+            // enabled bit) is supported in cases where a bare enable isn't, so it's worth trying before
+            // giving up and leaving the device disabled.
+            App.Log("DeviceLock", $"SetEnabled(enable, {deviceInstanceId}): enable-device failed, trying restart-device as a fallback.");
+            return RunPnputilAction("restart-device", deviceInstanceId);
+        }
+
+        /// <summary>Runs a single pnputil.exe "/{action} {deviceInstanceId}" call. Same deadlock-avoidance
+        /// pattern throughout the codebase for redirected-output child processes: reads both streams
+        /// asynchronously before waiting, with a timeout and a kill fallback, so a hung pnputil.exe can't
+        /// hang the caller — which actually happened another way during this project's development (a
+        /// DS4 was left with its device disabled when the Padlume process was force-killed during a
+        /// test, skipping the normal re-enable-on-exit path).</summary>
+        private static bool RunPnputilAction(string action, string deviceInstanceId)
+        {
             var psi = new ProcessStartInfo
             {
                 FileName = "pnputil.exe",
@@ -263,7 +286,7 @@ namespace Padlume
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
-            psi.ArgumentList.Add($"/{action}-device");
+            psi.ArgumentList.Add($"/{action}");
             psi.ArgumentList.Add(deviceInstanceId);
 
             try
@@ -271,24 +294,17 @@ namespace Padlume
                 using var process = Process.Start(psi);
                 if (process == null)
                 {
-                    App.Log("DeviceLock", $"SetEnabled({action}, {deviceInstanceId}): couldn't start pnputil.exe.");
+                    App.Log("DeviceLock", $"{action}({deviceInstanceId}): couldn't start pnputil.exe.");
                     return false;
                 }
 
-                // Starts reading both streams asynchronously BEFORE waiting for the process to exit —
-                // reading one to completion synchronously while the other pipe fills up can deadlock
-                // both sides forever (the classic .NET Process deadlock when stdout and stderr are both
-                // redirected). Combined with the timeout below, this keeps SetEnabled from hanging the
-                // UI forever if pnputil.exe never returns — which actually happened another way during
-                // this project's development (a DS4 was left with its device disabled when the Padlume
-                // process was force-killed during a test, skipping the normal re-enable-on-exit path).
                 var stdoutTask = process.StandardOutput.ReadToEndAsync();
                 var stderrTask = process.StandardError.ReadToEndAsync();
 
                 bool exited = process.WaitForExit((int)TimeSpan.FromSeconds(10).TotalMilliseconds);
                 if (!exited)
                 {
-                    App.Log("DeviceLock", $"SetEnabled({action}, {deviceInstanceId}): pnputil.exe didn't respond within 10s, terminating.");
+                    App.Log("DeviceLock", $"{action}({deviceInstanceId}): pnputil.exe didn't respond within 10s, terminating.");
                     try { process.Kill(entireProcessTree: true); } catch { /* may have already exited on its own */ }
                     return false;
                 }
@@ -297,15 +313,15 @@ namespace Padlume
                 string stderr = stderrTask.Result;
 
                 // 0 = success; 3010 = success but a restart is needed (shouldn't happen here, but isn't
-                // a failure). Any other code (e.g. 5 = access denied) is a real failure.
+                // a failure). Any other code (e.g. 5 = access denied, 50 = not supported) is a real failure.
                 bool ok = process.ExitCode == 0 || process.ExitCode == 3010;
                 if (!ok)
-                    App.Log("DeviceLock", $"SetEnabled({action}, {deviceInstanceId}): pnputil returned {process.ExitCode}. {stdout}{stderr}".Trim());
+                    App.Log("DeviceLock", $"{action}({deviceInstanceId}): pnputil returned {process.ExitCode}. {stdout}{stderr}".Trim());
                 return ok;
             }
             catch (Exception ex)
             {
-                App.Log("DeviceLock", $"SetEnabled({action}, {deviceInstanceId}): exception running pnputil.exe: {ex.Message}");
+                App.Log("DeviceLock", $"{action}({deviceInstanceId}): exception running pnputil.exe: {ex.Message}");
                 return false;
             }
         }
