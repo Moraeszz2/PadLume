@@ -1,23 +1,52 @@
 using System;
 using System.Globalization;
+using System.IO;
 
 namespace Padlume
 {
     /// <summary>
-    /// Every user-facing piece of text goes through here — decided by the Windows display language
-    /// (Settings > Time & language > Language) once, when the app starts. No localization framework
-    /// (.resx) on purpose: without Visual Studio's designer to generate the strongly-typed code,
-    /// hand-keeping two .resx files in sync would be more fragile than this — each string here already
-    /// shows both versions side by side, so a mismatch jumps out during review. Internal-only text
-    /// (App.Log, comments) is left out — only what actually appears on screen.
+    /// Every user-facing piece of text goes through here — decided once, when the app starts. No
+    /// localization framework (.resx) on purpose: without Visual Studio's designer to generate the
+    /// strongly-typed code, hand-keeping two .resx files in sync would be more fragile than this — each
+    /// string here already shows both versions side by side, so a mismatch jumps out during review.
+    /// Internal-only text (App.Log, comments) is left out — only what actually appears on screen.
     /// </summary>
     public static class Strings
     {
-        /// <summary>True when the Windows display language is English — decided once, when the class
-        /// loads (before any window opens). Changing the Windows language while the app is already open
-        /// does not switch the UI live (unlike the theme); Padlume needs to be reopened.</summary>
-        public static readonly bool IsEnglish =
-            CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("en", StringComparison.OrdinalIgnoreCase);
+        /// <summary>Language file written by installer/Padlume.iss based on which language the user
+        /// picked on Setup's language page — the language a person deliberately chose during install
+        /// should stick, regardless of whatever Windows' own display language happens to be.</summary>
+        private static readonly string LanguageFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Padlume", "language.txt");
+
+        /// <summary>True when the app should show English — decided once, when the class loads (before
+        /// any window opens). Changing this while the app is already open does not switch the UI live
+        /// (unlike the theme); Padlume needs to be reopened. Prefers the language picked during
+        /// installation (see LanguageFilePath); falls back to the Windows display language (Settings >
+        /// Time & language > Language) for anyone who didn't go through that installer.</summary>
+        public static readonly bool IsEnglish = DetermineIsEnglish();
+
+        private static bool DetermineIsEnglish()
+        {
+            try
+            {
+                if (File.Exists(LanguageFilePath))
+                {
+                    var content = File.ReadAllText(LanguageFilePath).Trim();
+                    if (content.Equals("en", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                    if (content.Equals("pt", StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
+            }
+            catch
+            {
+                // Falls through to the OS-culture default below.
+            }
+
+            return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("en", StringComparison.OrdinalIgnoreCase);
+        }
 
         private static string T(string pt, string en) => IsEnglish ? en : pt;
 
