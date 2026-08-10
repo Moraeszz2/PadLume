@@ -54,7 +54,14 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+; Launching Padlume.exe directly here fails with Win32 error 740 (ERROR_ELEVATION_REQUIRED): Setup
+; itself runs elevated (PrivilegesRequired=admin above), but Inno Setup's [Run] launcher hands the
+; post-install process off to the original (non-elevated) user's shell token to avoid leaving stray
+; elevated apps running — which collides with Padlume.exe's own manifest also demanding elevation.
+; Routing through "cmd /c start" forces a real ShellExecute-based launch instead, which correctly
+; re-triggers UAC for the target's manifest. This is the standard workaround for "elevated installer
+; + elevated app" in Inno Setup.
+Filename: "{cmd}"; Parameters: "/C start """" ""{app}\{#MyAppExeName}"""; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent runhidden
 
 [UninstallDelete]
 ; The app writes history/config to %AppData%\Padlume — asks explicitly instead of deleting it outright,
