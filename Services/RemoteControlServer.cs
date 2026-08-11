@@ -20,12 +20,11 @@ namespace Padlume
         public string BatteryText { get; set; } = "";
         public double BatteryPercent { get; set; }
         public bool IsSelected { get; set; }
-        public bool IsBlocked { get; set; }
     }
 
     /// <summary>
     /// Minimal local HTTP server that lets a phone on the same Wi-Fi/LAN see the controller list and
-    /// switch which one has priority — the same action as clicking a controller in the list inside the
+    /// switch which one is selected — the same action as clicking a controller in the list inside the
     /// app itself. There's no authentication: anyone who can reach this PC on the local network can use
     /// it while it's running. That's an acceptable tradeoff for a LAN-only convenience feature, but it's
     /// exactly why this stays off by default and only starts when the user explicitly checks the box.
@@ -49,7 +48,7 @@ namespace Padlume
         /// <summary>Supplies a fresh snapshot of the controller list on demand — called from a background thread, so the implementation must marshal onto the UI thread itself.</summary>
         public Func<IReadOnlyList<RemoteControllerInfo>>? GetControllers { get; set; }
 
-        /// <summary>Requests that the controller with this history key become the selected/prioritized one — called from a background thread.</summary>
+        /// <summary>Requests that the controller with this history key become the selected one — called from a background thread.</summary>
         public Action<string>? SelectController { get; set; }
 
         public bool Start(int port)
@@ -137,9 +136,9 @@ namespace Padlume
                 if (process == null)
                     return;
 
-                // Same deadlock-avoidance pattern as ControllerDeviceLock.SetEnabled: read both streams
-                // asynchronously before waiting, with a timeout and a kill fallback, so a hung netsh.exe
-                // can't hang the caller.
+                // Same deadlock-avoidance pattern as StartupManager's schtasks.exe calls: read both
+                // streams asynchronously before waiting, with a timeout and a kill fallback, so a hung
+                // netsh.exe can't hang the caller.
                 var stdoutTask = process.StandardOutput.ReadToEndAsync();
                 var stderrTask = process.StandardError.ReadToEndAsync();
 
@@ -345,11 +344,6 @@ namespace Padlume
   .status { font-size: 12px; color: #8A93A3; margin-top: 3px; }
   .status.is-selected { color: #7DA6FF; font-weight: 600; }
   .pct { font-weight: 800; font-size: 16px; flex: none; font-variant-numeric: tabular-nums; letter-spacing: -0.2px; }
-  .badge {
-    font-size: 10px; font-weight: 700; color: #FF6B6B; border: 1px solid rgba(239,68,68,0.5); border-radius: 6px;
-    background: rgba(239,68,68,0.08);
-    padding: 3px 7px; flex: none; text-transform: uppercase; letter-spacing: 0.4px;
-  }
   .empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     color: #7B8291; font-size: 13.5px; text-align: center; padding-top: 22vh; gap: 12px;
@@ -370,7 +364,7 @@ namespace Padlume
       <div class="live"><span class="radar"></span>Live</div>
     </div>
   </div>
-  <p class="hint">Tap a controller to give it priority.</p>
+  <p class="hint">Tap a controller to view it in Padlume.</p>
   <div id="list"></div>
   <div id="empty" class="empty" style="display:none">
     <div class="empty-icon">
@@ -423,12 +417,11 @@ async function refresh() {
         <div class="name"></div>
         <div class="status"></div>
       </div>
-      ${c.isBlocked ? '<div class="badge">Blocked</div>' : ''}
       <div class="pct" style="color:${color}"></div>
     `;
     card.querySelector('.name').textContent = c.name;
     const status = card.querySelector('.status');
-    status.textContent = c.isSelected ? 'Selected — receiving input' : (c.isBlocked ? 'Blocked' : 'Tap to select');
+    status.textContent = c.isSelected ? 'Selected' : 'Tap to select';
     if (c.isSelected) status.classList.add('is-selected');
     card.querySelector('.pct').textContent = c.batteryText;
     list.appendChild(card);

@@ -14,9 +14,9 @@ namespace Padlume
             "crash.log");
 
         // Fixed GUID-derived name so it can't collide with an unrelated app's mutex. Two Padlume
-        // instances running at once would each independently enumerate and enforce controller
-        // exclusivity — fighting over enabling/disabling the same devices — so the second one refuses
-        // to start instead of limping along.
+        // instances running at once would duplicate the tray icon, race on the same history/settings
+        // files, and fight over binding the phone-control port — so the second one refuses to start
+        // instead of limping along.
         private const string SingleInstanceMutexName = "Padlume-SingleInstance-3F2A9B7C-6E1D-4C8A-9B2F-8D4E1A7C5F30";
         private Mutex? _singleInstanceMutex;
 
@@ -70,8 +70,8 @@ namespace Padlume
         private static void LogException(string source, Exception ex) => Log(source, ex.ToString());
 
         /// <summary>Shared diagnostic log (%AppData%/Padlume/crash.log), also used outside exception
-        /// scenarios — e.g. ControllerDeviceLock logging SetupAPI failures that don't throw (the API
-        /// just returns false).</summary>
+        /// scenarios — e.g. StartupManager logging a failed schtasks.exe call that doesn't throw (the
+        /// process just exits with a non-zero code).</summary>
         public static void Log(string source, string message)
         {
             try

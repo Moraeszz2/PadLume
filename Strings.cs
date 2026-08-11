@@ -58,7 +58,6 @@ namespace Padlume
         public static string CompactModeTooltip => T("Modo compacto", "Compact mode");
         public static string ChooseTheController => T("Escolha o controle", "Choose a controller");
         public static string NoControllerConnected => T("Nenhum controle conectado.", "No controller connected.");
-        public static string Blocked => T("🔒 Bloqueado — clique para priorizar", "🔒 Blocked — click to prioritize");
 
         // Selected controller card
         public static string NoControllerSelected => T("Nenhum controle selecionado", "No controller selected");
@@ -84,8 +83,6 @@ namespace Padlume
         public static string SomeControllersDontReportSubtitle => T("Alguns controles não informam o nível de bateria ao Windows.", "Some controllers don't report battery level to Windows.");
         public static string ExactLevelUnavailableSubtitle => T("O nível exato de bateria não está disponível para este controle.", "The exact battery level isn't available for this controller.");
         public static string ControllerConnectedWorkingTitle => T("Controle conectado e funcionando corretamente.", "Controller connected and working correctly.");
-        public static string CouldNotBlockTitle => T("Não foi possível bloquear os outros controles.", "Couldn't block the other controllers.");
-        public static string RunAsAdminSubtitle => T("Execute o Padlume como Administrador para impor a prioridade de controle.", "Run Padlume as Administrator to enforce controller priority.");
         public static string CouldNotChangeStartupTitle => T("Não foi possível alterar a inicialização automática.", "Couldn't change automatic startup.");
         public static string WindowsDeniedChangeSubtitle => T("O Windows negou a alteração no registro (pode estar bloqueado por política do sistema).", "Windows denied the registry change (may be blocked by system policy).");
 

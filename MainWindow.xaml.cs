@@ -36,31 +36,8 @@ namespace Padlume
         public BitmapImage? PhotoSource { get; }
 
         /// <summary>
-        /// Windows device instance ID (SetupAPI) matching this controller, used to enable/disable it
-        /// via <see cref="ControllerDeviceLock"/>. Null while not yet resolved, or if it couldn't be
-        /// correlated (see ResolveDeviceInstanceId).
-        /// </summary>
-        public string? DeviceInstanceId { get; set; }
-
-        private bool _isBlocked;
-        /// <summary>True when Padlume disabled this controller to give priority to another one.</summary>
-        public bool IsBlocked
-        {
-            get => _isBlocked;
-            private set
-            {
-                if (_isBlocked == value) return;
-                _isBlocked = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBlocked)));
-            }
-        }
-
-        public void SetBlocked(bool blocked) => IsBlocked = blocked;
-
-        /// <summary>
-        /// Called when the same physical controller reconnects with a new RawGameController instance
-        /// (e.g. after being re-enabled via SetupAPI) — keeps the same ControllerItem (history, photo,
-        /// DeviceInstanceId) instead of duplicating the entry in the list.
+        /// Called when the same physical controller reconnects with a new RawGameController instance —
+        /// keeps the same ControllerItem (history, photo) instead of duplicating the entry in the list.
         /// </summary>
         public void UpdateControllerReference(RawGameController controller) => Controller = controller;
 
@@ -218,12 +195,6 @@ namespace Padlume
         private readonly RemoteControlServer _remoteServer = new();
         private const int RemoteControlPort = 51820;
 
-        /// <summary>
-        /// Device instance IDs that Padlume itself disabled (to give priority to another controller) —
-        /// used to (1) avoid treating the resulting RawGameControllerRemoved as a real disconnection and
-        /// (2) re-enable everything when the app actually exits.
-        /// </summary>
-        private readonly HashSet<string> _selfDisabledInstanceIds = new();
         private IReadOnlyList<BatteryHistoryPoint> _currentHistory = Array.Empty<BatteryHistoryPoint>();
         private bool _suppressStartupCheckboxEvent;
         private bool _suppressThemeRadioEvent;
@@ -265,7 +236,6 @@ namespace Padlume
             RawGameController.RawGameControllerAdded += (_, _) => Dispatcher.Invoke(RefreshControllerList);
             RawGameController.RawGameControllerRemoved += (_, _) => Dispatcher.Invoke(RefreshControllerList);
 
-            RecoverDevicesDisabledByPreviousSession();
             RefreshControllerList();
 
             // Periodically refreshes the selected controller's battery reading. Only re-reads what's
@@ -337,8 +307,8 @@ namespace Padlume
             }
 
             // The installer's [Run] postinstall step relaunches Padlume on its own once it's done (see
-            // installer/Padlume.iss) — same clean-shutdown path as the tray "Exit", so controllers this
-            // session disabled for exclusivity get re-enabled instead of staying locked out.
+            // installer/Padlume.iss) — goes through the same clean-shutdown path as the tray "Exit"
+            // (ExitApplication) instead of just killing the process.
             window.Close();
             ExitApplication();
         }
@@ -369,13 +339,6 @@ namespace Padlume
         {
             _remoteServer.Dispose();
 
-            // Returns Windows to the state it was in before the app opened — no controller should stay
-            // disabled just because Padlume was closed.
-            foreach (var instanceId in _selfDisabledInstanceIds)
-                ControllerDeviceLock.SetEnabled(instanceId, true);
-            _selfDisabledInstanceIds.Clear();
-            PersistSelfDisabledIds();
-
             // Without this, if the compact widget was open, closing the main window alone wouldn't be
             // enough to end the process (the default ShutdownMode is "on last window close", and the
             // widget counts as an open window) — the app would get stuck with just the widget floating
@@ -386,29 +349,6 @@ namespace Padlume
             Close();
         }
 
-        /// <summary>
-        /// Re-enables any device that a previous Padlume session disabled and failed to revert (process
-        /// force-killed, crash, power loss, etc. — ExitApplication only runs on the normal exit path).
-        /// Without this, that controller would stay disabled forever until someone manually fixed it in
-        /// Device Manager.
-        /// </summary>
-        private void RecoverDevicesDisabledByPreviousSession()
-        {
-            var pending = DisabledDeviceStore.Load();
-            if (pending.Count == 0)
-                return;
-
-            foreach (var instanceId in pending)
-            {
-                bool ok = ControllerDeviceLock.SetEnabled(instanceId, true);
-                App.Log("Recovery", $"Re-enabling {instanceId} left pending by a previous session: {(ok ? "ok" : "failed")}.");
-            }
-
-            DisabledDeviceStore.Save(Array.Empty<string>());
-        }
-
-        private void PersistSelfDisabledIds() => DisabledDeviceStore.Save(_selfDisabledInstanceIds);
-
         private void RefreshControllerList()
         {
             var previousSelectedKey = (ControllerListBox.SelectedItem as ControllerItem)?.HistoryKey;
@@ -416,15 +356,10 @@ namespace Padlume
             var live = RawGameController.RawGameControllers;
             var liveByKey = live.ToDictionary(ControllerItem.KeyFor, c => c);
 
-            // Only removes controllers that really disappeared — one that vanished because Padlume
-            // itself disabled it (see EnforceExclusivity) stays in the list, marked as blocked, so the
-            // user can still select it again to reclaim priority.
+            // Removes any controller that's no longer present.
             for (int i = _controllers.Count - 1; i >= 0; i--)
             {
-                var item = _controllers[i];
-                bool isLive = liveByKey.ContainsKey(item.HistoryKey);
-                bool isSelfDisabled = item.DeviceInstanceId != null && _selfDisabledInstanceIds.Contains(item.DeviceInstanceId);
-                if (!isLive && !isSelfDisabled)
+                if (!liveByKey.ContainsKey(_controllers[i].HistoryKey))
                     _controllers.RemoveAt(i);
             }
 
@@ -434,8 +369,8 @@ namespace Padlume
                 var existing = _controllers.FirstOrDefault(i => i.HistoryKey == key);
                 if (existing != null)
                 {
-                    // Same physical controller, possibly a new RawGameController instance (e.g. just
-                    // re-enabled) — updates the reference without duplicating the entry.
+                    // Same physical controller, possibly a new RawGameController instance (e.g. after a
+                    // reconnect) — updates the reference without duplicating the entry.
                     existing.UpdateControllerReference(controller);
                     continue;
                 }
@@ -444,9 +379,6 @@ namespace Padlume
                 _controllers.Add(item);
                 newItems.Add(item);
             }
-
-            foreach (var item in newItems)
-                ResolveDeviceInstanceId(item);
 
             EmptyListText.Visibility = _controllers.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             ControllerListBox.Visibility = _controllers.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -468,103 +400,7 @@ namespace Padlume
             foreach (var item in newItems)
                 _ = EnrichListItemAsync(item);
 
-            // Runs before UpdateBatteryDisplay on purpose: enforcing exclusivity is what actually
-            // matters here, and it can't be held hostage by an exception in the (cosmetic) display.
-            if (ControllerListBox.SelectedItem is ControllerItem selected)
-                EnforceExclusivity(selected);
-
             UpdateBatteryDisplay();
-        }
-
-        /// <summary>Correlates the RawGameController with the matching Windows device (best-effort).</summary>
-        private void ResolveDeviceInstanceId(ControllerItem item)
-        {
-            var excluded = new HashSet<string>(_controllers
-                .Where(i => i != item && i.DeviceInstanceId != null)
-                .Select(i => i.DeviceInstanceId!));
-
-            item.DeviceInstanceId = ControllerDeviceLock.TryFindDeviceInstanceId(
-                item.Controller.HardwareVendorId, item.Controller.HardwareProductId, excluded);
-        }
-
-        /// <summary>
-        /// Ensures only <paramref name="selected"/> receives input: re-enables it if it was blocked and
-        /// disables every other known controller. Idempotent — can be called every time the list or the
-        /// selection changes at no extra cost (controllers already in the right state are skipped).
-        /// </summary>
-        private void EnforceExclusivity(ControllerItem selected)
-        {
-            bool anyFailure = false;
-
-            if (selected.IsBlocked && selected.DeviceInstanceId != null)
-            {
-                bool reEnabled = ControllerDeviceLock.SetEnabled(selected.DeviceInstanceId, true);
-                if (!reEnabled)
-                {
-                    // Xbox controllers (and other composite USB devices) enumerate as several sibling
-                    // HID interfaces — disabling one can make Windows re-enumerate the whole device,
-                    // changing the instance IDs of the others out from under us. Re-resolves and retries
-                    // once instead of leaving the controller the user just picked stuck showing as
-                    // blocked because we kept trying a now-stale ID.
-                    ResolveDeviceInstanceId(selected);
-                    reEnabled = selected.DeviceInstanceId != null && ControllerDeviceLock.SetEnabled(selected.DeviceInstanceId, true);
-                }
-
-                if (reEnabled)
-                {
-                    _selfDisabledInstanceIds.Remove(selected.DeviceInstanceId!);
-                    selected.SetBlocked(false);
-                }
-                else
-                {
-                    anyFailure = true;
-                }
-            }
-
-            foreach (var other in _controllers)
-            {
-                if (other == selected || other.IsBlocked)
-                    continue;
-
-                if (other.DeviceInstanceId == null)
-                {
-                    // No resolved ID means there's no way to disable it — tries to resolve it again now
-                    // (may have failed earlier due to a transient condition) instead of staying stuck forever.
-                    ResolveDeviceInstanceId(other);
-                    if (other.DeviceInstanceId == null)
-                    {
-                        anyFailure = true;
-                        continue;
-                    }
-                }
-
-                bool disabled = ControllerDeviceLock.SetEnabled(other.DeviceInstanceId, false);
-                if (!disabled)
-                {
-                    // Same stale-ID scenario as above (composite-device sibling re-enumeration) can hit
-                    // the disable side too — one more resolve-and-retry before counting it as failed.
-                    ResolveDeviceInstanceId(other);
-                    disabled = other.DeviceInstanceId != null && ControllerDeviceLock.SetEnabled(other.DeviceInstanceId, false);
-                }
-
-                if (disabled)
-                {
-                    _selfDisabledInstanceIds.Add(other.DeviceInstanceId!);
-                    other.SetBlocked(true);
-                }
-                else
-                {
-                    anyFailure = true;
-                }
-            }
-
-            PersistSelfDisabledIds();
-
-            if (anyFailure)
-            {
-                InfoTitleText.Text = Strings.CouldNotBlockTitle;
-                InfoSubtitleText.Text = Strings.RunAsAdminSubtitle;
-            }
         }
 
         private async Task EnrichListItemAsync(ControllerItem item)
@@ -599,12 +435,6 @@ namespace Padlume
         private void ControllerListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             SelectorToggle.IsChecked = false;
-
-            // Before UpdateBatteryDisplay on purpose — see the equivalent comment in
-            // RefreshControllerList.
-            if (ControllerListBox.SelectedItem is ControllerItem selected)
-                EnforceExclusivity(selected);
-
             UpdateBatteryDisplay();
         }
 
@@ -738,10 +568,9 @@ namespace Padlume
             ConnectionStatusText.Foreground = new SolidColorBrush(ColorGood);
             ConnectionTypeText.Text = item.ConnectionType != null ? $"via {item.ConnectionType}" : Strings.BluetoothOrUsb;
 
-            // item.Controller may be momentarily stale (e.g. right after being re-enabled via SetupAPI,
-            // before the RawGameControllerAdded event updates the reference) — accessing its properties
-            // in that state can throw. That must not stop the rest of the screen (and, more importantly,
-            // the EnforceExclusivity call in our caller) from running.
+            // item.Controller may be momentarily stale (e.g. right after a reconnect, before the
+            // RawGameControllerAdded event updates the reference) — accessing its properties in that
+            // state can throw. That must not stop the rest of the screen from updating.
             try
             {
                 ControllerIdText.Text = $"VID {item.Controller.HardwareVendorId:X4} • PID {item.Controller.HardwareProductId:X4}";
@@ -1267,7 +1096,6 @@ namespace Padlume
                     BatteryText = c.BatteryPercent is double pct ? $"{pct:0}%" : Strings.NotAvailable,
                     BatteryPercent = c.BatteryPercent ?? 0,
                     IsSelected = c == selected,
-                    IsBlocked = c.IsBlocked,
                 }).ToList();
             });
         }

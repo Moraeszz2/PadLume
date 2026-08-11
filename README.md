@@ -4,16 +4,21 @@ App de desktop (Windows, WPF/.NET 8) que lista os controles conectados no PC —
 
 ## Por que pede Administrador
 
-O Padlume pede elevação (Administrador) porque a função de **exclusividade de controle** — garantir que só o
-controle selecionado envie input pros jogos — funciona desabilitando o dispositivo HID dos outros controles
-via `pnputil.exe` (o mesmo efeito de "Desativar dispositivo" no Gerenciador de Dispositivos do Windows). Essa
-API do Windows só pode ser chamada com privilégio elevado.
+O Padlume pede elevação (Administrador) por dois motivos, ambos opcionais (o app funciona sem admin também,
+só com essas duas funções desligadas):
 
-- Todo dispositivo que o app desabilita é reabilitado automaticamente ao fechar (ver `ExitApplication` em
-  `MainWindow.xaml.cs`), e também na próxima abertura caso o processo tenha sido encerrado à força antes de
-  conseguir reabilitar (ver `DisabledDeviceStore.cs`).
-- O app é open source — todo o código que roda com esse privilégio está neste repositório, principalmente em
-  `DeviceControl/ControllerDeviceLock.cs`. Se tiver dúvida sobre o que ele faz, é só ler antes de instalar.
+- **"Iniciar automaticamente com o Windows"** (`Services/StartupManager.cs`) usa uma Tarefa Agendada do
+  Windows com privilégio máximo (`schtasks /create ... /rl highest`) em vez da chave de registro clássica —
+  necessário porque um app elevado colocado na chave `Run` simplesmente não abre sozinho no login (o Windows
+  não eleva itens de inicialização automaticamente).
+- **"Permitir controlar pelo celular"** (`Services/RemoteControlServer.cs`) cria/remove uma regra no Firewall
+  do Windows (`netsh advfirewall`) pra liberar a porta local usada pela página do celular.
+
+Nenhuma das duas funções desabilita ou mexe em outro dispositivo/hardware do sistema — o app apenas lista os
+controles detectados via `Windows.Gaming.Input.RawGameController` (API padrão do Windows) e lê a bateria
+deles.
+
+- O app é open source — todo o código que roda com esse privilégio está neste repositório.
 - Os binários publicados (`Setup.exe`, na raiz do repositório) são gerados por um workflow do GitHub Actions
   a partir deste código-fonte público (ver `.github/workflows/`), não à mão — então o que você baixa numa
   Release corresponde ao que está no repositório nessa tag.
@@ -32,8 +37,8 @@ Usa a API `Windows.Gaming.Input.RawGameController` do próprio Windows, a mesma 
 
 Baixe e rode `Setup.exe` (raiz do repositório) — instala em Arquivos de Programas, cria atalho no
 menu Iniciar (e, opcionalmente, na área de trabalho) e registra o desinstalador no Painel de Controle.
-Pede elevação (Administrador) na instalação, já que o próprio Padlume precisa disso pra funcionar
-(ver `ControllerDeviceLock.cs`).
+Pede elevação (Administrador) na instalação; veja a seção acima ("Por que pede Administrador") pra
+entender exatamente pra que isso é usado.
 
 Pra gerar o instalador depois de alterar o código:
 

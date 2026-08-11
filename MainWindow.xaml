@@ -10,7 +10,6 @@
         Foreground="{DynamicResource TextPrimaryBrush}">
     <Window.Resources>
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <!-- No TargetType/x:Key here on purpose: applies on its own to every scrollbar in the window
              (the main one and the controller list's in the popup), instead of Windows' default white
@@ -180,9 +179,6 @@
                                         <Run Text=" "/>
                                         <Run Text="{Binding StatusLine, Mode=OneWay}"/>
                                     </TextBlock>
-                                    <TextBlock FontSize="12" Foreground="#F5A623" Margin="0,4,0,0" TextWrapping="Wrap"
-                                               Visibility="{Binding IsBlocked, Converter={StaticResource BoolToVisibilityConverter}}"
-                                               Text="{x:Static local:Strings.Blocked}"/>
                                 </StackPanel>
                                 <TextBlock x:Name="Check" Grid.Column="2" Text="✓" FontSize="16" FontWeight="Bold" Foreground="#3B6BFF" VerticalAlignment="Center" Visibility="Collapsed"/>
                             </Grid>

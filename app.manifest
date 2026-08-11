@@ -5,9 +5,10 @@
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
         <!--
-          Necessário para habilitar/desabilitar dispositivos de controle via SetupAPI, o mecanismo
-          usado para impor que só o controle selecionado receba input dos jogos (ver
-          ControllerDeviceLock.cs). Sem isso, SetupDiCallClassInstaller falha silenciosamente.
+          Necessário para dois recursos opcionais: criar a Tarefa Agendada de "iniciar com o Windows"
+          com privilégio máximo (ver Services/StartupManager.cs — colocar um app elevado na chave de
+          registro Run clássica não funciona, o Windows nunca eleva itens de inicialização sozinho) e
+          gerenciar a regra de firewall do controle pelo celular (ver Services/RemoteControlServer.cs).
         -->
         <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
       </requestedPrivileges>

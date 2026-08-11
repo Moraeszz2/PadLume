@@ -59,9 +59,10 @@ namespace Padlume
             }
         }
 
-        /// <summary>Runs schtasks.exe and returns its exit code, or -1 on failure to even start it. Same
-        /// deadlock-avoidance pattern as ControllerDeviceLock.SetEnabled: reads both streams
-        /// asynchronously before waiting, with a timeout and a kill fallback.</summary>
+        /// <summary>Runs schtasks.exe and returns its exit code, or -1 on failure to even start it. Reads
+        /// both streams asynchronously before waiting, with a timeout and a kill fallback — reading one
+        /// to completion synchronously while the other pipe fills up can deadlock both sides forever
+        /// (the classic .NET Process deadlock when stdout and stderr are both redirected).</summary>
         private static int RunSchtasks(string arguments, int timeoutMs)
         {
             var psi = new ProcessStartInfo
